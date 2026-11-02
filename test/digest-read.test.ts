@@ -119,3 +119,43 @@ describe('readNight on odd files', () => {
     expect(readNight(dir, '2026-10-30')).toMatchObject({ rows: [], badLines: 1 });
   });
 });
+
+describe('status counts are counted, not derived (issue #9, from review of #5)', () => {
+  it('counts a fail that a later line of the same job overrode', () => {
+    const dir = tempNight(
+      '2026-10-30',
+      [
+        '{"at":"2026-10-30T23:00:00+01:00","job":"notes/backup","status":"fail","owner":null,"error":"quota exceeded"}',
+        '{"at":"2026-10-30T23:05:00+01:00","job":"notes/backup","status":"ok","owner":null}',
+      ].join('\n'),
+    );
+    const row = readNight(dir, '2026-10-30')?.rows[0];
+    // The job ends ok, but the night still ran one failure. Deriving ok as runs - retry - fail
+    // reported 2 ok and 0 fail here, which is the bug issue #9 fixes.
+    expect(row?.lastStatus).toBe('ok');
+    expect(row?.statuses).toEqual({ ok: 1, retry: 0, fail: 1 });
+    expect(row?.runs).toBe(2);
+  });
+
+  it('keeps the real night at 10 ok, 4 retry, 1 fail', () => {
+    const rows = readNight('runs', '2026-10-28')?.rows ?? [];
+    const total = rows.reduce(
+      (sum, row) => ({
+        ok: sum.ok + row.statuses.ok,
+        retry: sum.retry + row.statuses.retry,
+        fail: sum.fail + row.statuses.fail,
+      }),
+      { ok: 0, retry: 0, fail: 0 },
+    );
+    expect(total).toEqual({ ok: 10, retry: 4, fail: 1 });
+  });
+
+  it('sums the three counts to the night’s good lines', () => {
+    const night = readNight('runs', '2026-10-28');
+    const rows = night?.rows ?? [];
+    const good = rows.reduce((n, row) => n + row.runs, 0);
+    const counted = rows.reduce((n, row) => n + row.statuses.ok + row.statuses.retry + row.statuses.fail, 0);
+    expect(counted).toBe(good);
+    expect(good + (night?.badLines ?? 0)).toBe(16); // every non-blank line in the fixture
+  });
+});

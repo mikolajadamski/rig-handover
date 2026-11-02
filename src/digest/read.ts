@@ -74,6 +74,7 @@ export const readNight: ReadNight = (runsDir: string, night: string): Night | nu
         job: line.job,
         owner: line.owner,
         runs: 1,
+        statuses: { ok: 0, retry: 0, fail: 0, [line.status]: 1 },
         retries: line.status === 'retry' ? 1 : 0,
         lastStatus: line.status,
         lastError: line.error ?? null,
@@ -83,6 +84,7 @@ export const readNight: ReadNight = (runsDir: string, night: string): Night | nu
       continue;
     }
     row.runs += 1;
+    row.statuses[line.status] += 1;
     if (line.status === 'retry') row.retries += 1;
     row.lastStatus = line.status;
     row.lastError = line.error ?? null;

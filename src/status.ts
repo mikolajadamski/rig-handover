@@ -21,18 +21,15 @@ function nightEntry(runsDir: string, night: string): NightEntry {
   try {
     const read = readNight(runsDir, night);
     if (read === null) return { night, counts: null };
-    // Lines, not jobs. DigestRow keeps no per-status line count, so: retry = sum of retries,
-    // fail = jobs whose last line failed, ok = the remaining lines. A fail line that a later
-    // line of the same job overrode is not visible to the reader and is counted as ok.
-    let runs = 0;
-    let retry = 0;
-    let fail = 0;
+    // Lines by status, summed from what the reader counted (issue #9). Not derived from
+    // lastStatus, which cannot see a fail that a later line of the same job overrode.
+    const counts = { ok: 0, retry: 0, fail: 0 };
     for (const row of read.rows) {
-      runs += row.runs;
-      retry += row.retries;
-      if (row.lastStatus === 'fail') fail += 1;
+      counts.ok += row.statuses.ok;
+      counts.retry += row.statuses.retry;
+      counts.fail += row.statuses.fail;
     }
-    return { night, counts: { ok: runs - retry - fail, retry, fail } };
+    return { night, counts };
   } catch {
     return { night, counts: null };
   }

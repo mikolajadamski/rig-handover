@@ -21,12 +21,21 @@ export type RunLine = {
   error?: string;
 };
 
+/** A job's lines counted by status. The three always sum to `runs`. */
+export type StatusCounts = { ok: number; retry: number; fail: number };
+
 /** One row per job for one night. */
 export type DigestRow = {
   job: string;
   owner: string | null;
   /** Every line for this job, whatever its status. */
   runs: number;
+  /**
+   * This job's lines by status. Counted while the lines are read, never derived from
+   * `lastStatus`: a job that fails and then succeeds has both a fail and an ok line, and
+   * `lastStatus` alone cannot show that (issue #9, from review of #5).
+   */
+  statuses: StatusCounts;
   /** Lines with status `retry`. 3 or more is marked on the page. */
   retries: number;
   /** Status of this job's last line, in file order. */
